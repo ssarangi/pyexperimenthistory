@@ -4,42 +4,159 @@ import logging
 import matplotlib.image as mpimg
 import typing
 import numpy as np
-
-class MarkdownText:
-    @staticmethod
-    def center_text(txt, length):
-        if len(txt) > length:
-            raise Exception("Length for centering cannot be greater than the length of text")
-
-        total_spaces = length - len(txt)
-        left_spaces = total_spaces // 2
-        right_spaces = total_spaces - (left_spaces + len(txt))
-
-        print(left_spaces)
-        print(right_spaces)
-        new_txt = " " * left_spaces + txt + " " * right_spaces
-        return new_txt
-
-class MarkdownTable:
-    def __init__(self, cols_desc: typing.List[str]):
-        if len(cols_desc) == 0:
-            raise Exception("Column Description needs to be an List")
-        self._col_desc = cols_desc
-        self._num_cols = len(cols_desc)
-        self._rows = []
-
-    def add_row(self, *values):
-        if len(values) > self._num_cols:
-            raise Exception("More column values setup for than columns")
-
-        self._rows.append(values)
-
-    def render(self):
-        table = np.array(self._rows)
-
-
+from enum import Enum
 
 class Markdown:
+    class Header(Enum):
+        H1 = 1,
+        H2 = 2,
+        H3 = 3,
+        H4 = 4,
+        H5 = 5,
+        H6 = 6,
+
+    class Emphasis(Enum):
+        EMPHASIS = 1,
+        STRONG_EMPHASIS = 2,
+        COMBINED_EMPHASIS = 3,
+        STRIKETHROUGH = 4,
+
+        @staticmethod
+        def render(txt, emphasis : Markdown.Emphasis):
+            if emphasis == Markdown.Emphasis.EMPHASIS:
+                return "*" + txt + "*"
+            elif emphasis == Markdown.Emphasis.STRONG_EMPHASIS:
+                return "**" + txt + "**"
+            elif emphasis == Markdown.Emphasis.COMBINED_EMPHASIS:
+                return "**" + txt
+            elif emphasis == Markdown.Emphasis.STRIKETHROUGH:
+                return "~~" + txt + "~~"
+            else:
+                raise Exception("Invalid Emphasis specified")
+
+    class List:
+        """
+        Currently supports only 2 levels of indentation.. i.e. one main item and one sub item
+        """
+        class ListType(Enum):
+            ORDERED_MAIN_ITEM = 1,
+            UNORDERED_MAIN_ITEM = 2,
+            UNORDERED_SUB_ITEM = 3,
+            ORDERED_SUB_ITEM = 4
+
+        def __init__(self):
+            self._items = []
+            self._ordered_idx = 1
+            self._ordered_sub_idx = 1
+
+        def add_ordered_item(self, item):
+            self._items.append((Markdown.List.ListType.ORDERED_MAIN_ITEM, str(item)))
+
+        def add_item(self, item):
+            self._items.append((Markdown.List.ListType.UNORDERED_MAIN_ITEM, str(item)))
+
+        def add_unordered_sub_item(self, item):
+            self._items.append((Markdown.List.ListType.UNORDERED_SUB_ITEM, str(item)))
+
+        def add_ordered_sub_item(self, item):
+            self._items.append((Markdown.List.ListType.ORDERED_SUB_ITEM, str(item)))
+
+        def render(self):
+            lines = []
+            for item in self._items:
+                if item[0] == Markdown.List.ListType.ORDERED_MAIN_ITEM:
+                    line = str(self._ordered_idx) + "." + item[1]
+                elif item[0] == Markdown.List.ListType.UNORDERED_MAIN_ITEM:
+                    line = "* " + item[1]
+                elif item[0] == Markdown.List.ListType.ORDERED_SUB_ITEM:
+                    line = " " * 4 + str(self._ordered_sub_idx) + " " + item[1]
+                elif item[0] == Markdown.List.ListType.UNORDERED_SUB_ITEM:
+                    line = " " * 4 + "*" + item[1]
+                else:
+                    raise Exception("Invalid markdown List type specified")
+
+                lines.append(line)
+
+            markdown = "\n".join(lines)
+            return markdown
+
+    class Image:
+        def __init__(self, ref_name, path, hover_txt):
+            self._ref_name = ref_name
+            self._path = path
+            self._hover_txt = hover_txt
+
+        def render_ref(self):
+            return '[%s]: %s "%s"' % (self._ref_name, self._path, self._hover_txt)
+
+        def render(self):
+            return '![alt text][' + self._ref_name + "]"
+
+    class Text:
+        @staticmethod
+        def center_text(txt, length):
+            if len(txt) > length:
+                raise Exception("Length for centering cannot be greater than the length of text")
+
+            total_spaces = length - len(txt)
+            left_spaces = total_spaces // 2
+            right_spaces = total_spaces - left_spaces
+            new_txt = " " * left_spaces + txt + " " * right_spaces
+            return new_txt
+
+    class Table:
+        def __init__(self, *cols_desc: typing.List[str]):
+            if len(cols_desc) == 0:
+                raise Exception("Column Description needs to be an List")
+            self._cols_desc = cols_desc
+            self._num_cols = len(cols_desc)
+            self._rows = []
+
+        def add_row(self, *values):
+            if len(values) > self._num_cols:
+                raise Exception("More column values setup for than columns")
+
+            self._rows.append(values)
+
+        def add_title_and_description(self, title, description):
+            self._title = title
+            self._description = description
+
+        def render(self):
+            table = np.array(self._rows)
+            max_length_per_column = [len(max(table[:, 0], key=len)) for i in range(self._num_cols)]
+
+            # Render the Header first
+            lines = []
+            header = "| "
+            for idx, coldesc in enumerate(self._cols_desc):
+                header = header + " "
+                max_length = max_length_per_column[idx]
+                header = header + Markdown.Text.center_text(coldesc, max_length)
+                header = header + " |"
+
+            lines.append(header)
+
+            # Draw the underscore
+            underscores = np.array(list(header))
+            non_separators = np.where(underscores != '|')
+            underscores[non_separators] = '-'
+            underscores = "".join(underscores)
+            lines.append(underscores)
+
+            # Now start adding the values
+            for row in self._rows:
+                line = "| "
+                for i, value in enumerate(row):
+                    line = line + " "
+                    txt = Markdown.Text.center_text(value, max_length_per_column[i])
+                    line = line + txt
+                    line = line + " |"
+                lines.append(line)
+
+            markdown = "\n".join(lines)
+            return markdown
+
     def __init__(self):
         pass
 
