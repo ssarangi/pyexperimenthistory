@@ -5,6 +5,7 @@ import matplotlib.image as mpimg
 import typing
 import numpy as np
 from enum import Enum
+import inspect
 
 class Markdown:
     class Header(Enum):
@@ -14,6 +15,15 @@ class Markdown:
         H4 = 4,
         H5 = 5,
         H6 = 6,
+
+        @staticmethod
+        def render(self, header, txt):
+            v = int(header)
+            return "#" * header + " " + txt
+
+    class HorizontalRule:
+        def render(self):
+            return "----"
 
     class Emphasis(Enum):
         EMPHASIS = 1,
@@ -92,7 +102,42 @@ class Markdown:
         def render(self):
             return '![alt text][' + self._ref_name + "]"
 
+    class Link:
+        """
+        Currently only inline style links are supported
+        """
+        def __init__(self, link, txt):
+            self._link = link
+            self._txt = txt
+
+        def render(self):
+            return "[" + self._txt + "](" + self._link + ")"
+
+    class Code:
+        """
+        Only supports python for now. Refer to functions directly
+        """
+        def __init__(self, func):
+            self._func = func
+
+        def render(self):
+            markdown = '```python\n'
+            markdown = markdown + inspect.getsourcelines(self._func)
+            markdown = markdown + "\n```"
+
+            return markdown
+
     class Text:
+        def __init__(self):
+            self._txt = ""
+
+        def add_text(self, txt):
+            self.txt = self.txt + txt
+            return self
+
+        def render(self):
+            return self._txt
+
         @staticmethod
         def center_text(txt, length):
             if len(txt) > length:
@@ -158,7 +203,27 @@ class Markdown:
             return markdown
 
     def __init__(self):
-        pass
+        self._images = []
+        self._markdown_elements = []
+
+    def add_image(self, image):
+        self._images.append(image)
+        self._markdown_elements.append(image)
+
+    def add_table(self, table):
+        self._markdown_elements.append(table)
+
+    def add_link(self, link):
+        self._markdown_elements.append(link)
+
+    def add_list(self, list):
+        self._markdown_elements.append(list)
+
+    def add_txt(self, txt):
+        self._markdown_elements.append(txt)
+
+
+
 
 class ExperimentManagerOptions:
     def __init__(self):
