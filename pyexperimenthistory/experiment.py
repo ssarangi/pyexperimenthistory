@@ -222,9 +222,6 @@ class Markdown:
     def add_txt(self, txt):
         self._markdown_elements.append(txt)
 
-
-
-
 class ExperimentManagerOptions:
     def __init__(self):
         self.overwrite_if_experiment_exists = False
@@ -294,88 +291,67 @@ class ExperimentManager:
     def get_index_field(self, df, index):
         return df[df.index == index]
 
-    def to_markdown(self, experiment_name : str, filename : str):
+    def to_markdown(self, experiment_name : str):
         """
         Creates a markdown file from the experiments data. This has limited support for now
         :param filename: str
         :return: None
         """
-        f = open(filename, 'w')
+        experiment = self.get_experiment(experiment_name)
+        f = open(experiment.root_dir + "/" + experiment_name + ".md", 'w')
+        # Create a markdown object
+        markdown = Markdown()
 
-        # First create all the image references
-        # [ //]:  # (Image References)
-        #
-        # [image1]:./ examples / undistort_output.png
-        # "Undistorted"
-        # [image2]:./ test_images / test1.jpg
-        # "Road Transformed"
-        # [image3]:./ examples / binary_combo_example.jpg
-        # "Binary Example"
-        # [image4]:./ examples / warped_straight_lines.jpg
-        # "Warp Example"
-        # [image5]:./ examples / color_fit_lines.jpg
-        # "Fit Visual"
-        # [image6]:./ examples / example_output.jpg
-        # "Output"
-        # [video1]:./ project_video.mp4
-        # "Video"
-        lines = []
-        lines.append("[//]: # (Image References)")
+        for img in experiment.images:
+            mkimg = Markdown.Image(img.title, img.filename, img.description)
+            markdown.add_image(img.filename)
 
-        df = self.get_experiment(experiment_name)
-        images_df = ExperimentManager.get_index_field(df, "image")
+        table = Markdown.Table(["Parameter Name", "Input/Output", "Value", "Title", "Description"])
+        for param in experiment.parameters:
+            table.add_row([param.name, ])
 
-        for idx, row in images_df.iterrows():
-            image_name = os.path.basename(row.filename)
-            s = '[%s]: %s "%s"' % (image_name, row.filename, row.title)
-            lines.append(s)
+        markdown.add_table(table)
 
-        # Add the Parameters summary in a table format
-        parameters_df = ExperimentManager.get_index_field(df, "parameter")
-
-        # for idx, row in parameters_df.iterrows():
-        final_str = "\n".join(lines)
-        print(final_str)
 
 class Image:
     def __init__(self, exp_name, img, input_or_output, filename, title, description=""):
-        self._exp_name = exp_name
-        self._img = img
-        self._filename = filename
-        self._title = title
-        self._description = description
-        self._input_or_output = input_or_output
+        self.exp_name = exp_name
+        self.img = img
+        self.filename = filename
+        self.title = title
+        self.description = description
+        self.input_or_output = input_or_output
 
     def commit(self):
-        mpimg.imsave(self._filename, self._img)
+        mpimg.imsave(self.filename, self.img)
 
     def to_series(self):
-        s = pd.Series([self._exp_name, self._input_or_output, self._filename, self._title, self._description],
+        s = pd.Series([self.exp_name, self.input_or_output, self.filename, self.title, self.description],
                       index=['experiment', 'input_or_output', 'filename', 'title', 'description'], name="image")
         return s
 
 class Parameter:
     def __init__(self, exp_name, input_or_output, param_name, param_value, title, description):
-        self._exp_name = exp_name
-        self._title = title
-        self._description = description
-        self._input_or_output = input_or_output
-        self._param_name = param_name
-        self._param_value = param_value
+        self.exp_name = exp_name
+        self.title = title
+        self.description = description
+        self.input_or_output = input_or_output
+        self.param_name = param_name
+        self.param_value = param_value
 
     def to_series(self):
-        s = pd.Series([self._exp_name, self._input_or_output, self._param_name, self._param_value, type(self._param_value), self._title, self._description],
+        s = pd.Series([self.exp_name, self.input_or_output, self.param_name, self.param_value, type(self.param_value), self.title, self.description],
                       index=['experiment', 'input_or_output', 'parameter_name', 'parameter_value', 'type', 'title', 'description'],
                       name='parameter')
 
 class Text:
     def __init__(self, exp_name, title, description):
-        self._exp_name = exp_name
-        self._title = title
-        self._description = description
+        self.exp_name = exp_name
+        self.title = title
+        self.description = description
 
     def to_series(self):
-        s = pd.Series([self._exp_name, self._title, self._description],
+        s = pd.Series([self.exp_name, self.title, self.description],
                       index=['experiment', 'title', 'description'])
 
 class Experiment:
@@ -403,6 +379,18 @@ class Experiment:
     @property
     def name(self):
         return self._name
+
+    @property
+    def root_dir(self):
+        return self._dirname
+
+    @property
+    def images(self):
+        return self._images
+
+    @property
+    def parameters(self):
+        return self._parameters
 
     def _commit(self, s):
         self._exp_mgr.commit_experiment(s)
