@@ -32,7 +32,7 @@ class Markdown:
         STRIKETHROUGH = 4,
 
         @staticmethod
-        def render(txt, emphasis : Markdown.Emphasis):
+        def render(txt, emphasis):
             if emphasis == Markdown.Emphasis.EMPHASIS:
                 return "*" + txt + "*"
             elif emphasis == Markdown.Emphasis.STRONG_EMPHASIS:
